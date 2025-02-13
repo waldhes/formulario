@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Altas y OPs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <script>
+        function showSection(sectionId) {
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            document.getElementById(sectionId).classList.remove('hidden');
+        }
+
+        function showHome() {
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            document.getElementById('pantalla-inicio').classList.remove('hidden');
+
+            // Limpiar formularios
+            document.getElementById('uploadFormAltas').reset();
+            document.getElementById('uploadFormOp').reset();
+            
+            // Ocultar campos adicionales
+            document.getElementById('otrosArea').style.display = 'none';
+            document.getElementById('facturaFields').style.display = 'none';
+            document.getElementById('fileFields').style.display = 'none';
+        }
+
+        function uploadFilesAltas(event) {
+            event.preventDefault();
+            var form = document.getElementById('uploadFormAltas');
+            var data = new FormData(form);
+            var files = [];
+            for (var i = 1; i <= 3; i++) {
+                var fileInput = document.getElementById('alta_file' + i);
+                if (fileInput.files.length > 0) {
+                    var file = fileInput.files[0];
+                    var reader = new FileReader();
+                    reader.onload = (function(file) {
+                        return function(e) {
+                            files.push({
+                                name: file.name,
+                                type: file.type,
+                                data: e.target.result.split(',')[1] // Solo la parte base64
+                            });
+                            if (files.length === 3) { // Asegúrate de que se hayan leído todos los archivos
+                                google.script.run.withSuccessHandler(function(response) {
+                                    alert(response);
+                                    form.reset();
+                                    showHome();
+                                }).uploadFilesAltas({
+                                    alta_fecha: data.get('alta_fecha'),
+                                    alta_name: data.get('alta_name'),
+                                    alta_cargo: data.get('alta_cargo'),
+                                    alta_dni: data.get('alta_dni'),
+                                    alta_cuil: data.get('alta_cuil'),
+                                    alta_afiliadoSICA: data.get('alta_afiliadoSICA'),
+                                    alta_obraSocial: data.get('alta_obraSocial'),
+                                    alta_fechaNacimiento: data.get('alta_fechaNacimiento'),
+                                    alta_domicilio: data.get('alta_domicilio'),
+                                    alta_nombreBanco: data.get('alta_nombreBanco'),
+                                    alta_alias: data.get('alta_alias'),
+                                    alta_cbu: data.get('alta_cbu'),
+                                    alta_telefono: data.get('alta_telefono'),
+                                    alta_telefono2: data.get('alta_telefono2'),
+                                    alta_estadoCivil: data.get('alta_estadoCivil'),
+                                    alta_grupoSanguineo: data.get('alta_grupoSanguineo'),
+                                    alta_enfermedadesPreexistentes: data.get('alta_enfermedadesPreexistentes'),
+                                    alta_restriccionAlimentaria: data.get('alta_restriccionAlimentaria'),
+                                    files: files
+                                });
+                            }
+                        };
+                    })(file);
+                    reader.readAsDataURL(file);
+                }
+            }
+        }
+
+        function uploadFilesOp(event) {
+            event.preventDefault();
+            var form = document.getElementById('uploadFormOp');
+            var data = new FormData(form);
+            var files = [];
+            var requireFiles = data.get('op_fondosPara') === 'FC A PAGAR POR TRANSFERENCIA';
+
+            if (requireFiles) {
+                for (var i = 1; i <= 2; i++) {
+                    var fileInput = document.getElementById('op_file' + i);
+                    if (fileInput.files.length > 0) {
+                        var file = fileInput.files[0];
+                        var reader = new FileReader();
+                        reader.onload = (function(file) {
+                            return function(e) {
+                                files.push({
+                                    name: file.name,
+                                    type: file.type,
+                                    data: e.target.result.split(',')[1] // Solo la parte base64
+                                });
+                                if (files.length === 2) { // Asegúrate de que se hayan leído todos los archivos
+                                    sendOpData(data, files);
+                                }
+                            };
+                        })(file);
+                        reader.readAsDataURL(file);
+                    } else {
+                        // Si no se han adjuntado archivos y son requeridos, no se envía el formulario
+                        alert("Por favor, adjunta los archivos requeridos.");
+                        return;
+                    }
+                }
+            } else {
+                // Si no se requieren archivos, envía los datos directamente
+                sendOpData(data, []);
+            }
+        }
+
+        function sendOpData(data, files) {
+            google.script.run.withSuccessHandler(function(response) {
+                alert(response);
+                document.getElementById('uploadFormOp').reset();
+                showHome();
+            }).uploadFilesOp({
+                op_fecha: data.get('op_fecha'),
+                op_opingresadax: data.get('op_opingresadax'),
+                op_empresa: data.get('op_empresa'),
+                op_area: data.get('op_area') === 'OTROS' ? data.get('op_otrosAreaInput') : data.get('op_area'),
+                op_fondosPara: data.get('op_fondosPara'),
+                op_numFactura: data.get('op_numFactura'),
+                op_tipoFactura: data.get('op_tipoFactura'),
+                op_razonSocial: data.get('op_razonSocial'),
+                op_cuit: data.get('op_cuit'),
+                op_banco: data.get('op_banco'),
+                op_aliasCBU: data.get('op_aliasCBU'),
+                op_montoSinIVA: data.get('op_montoSinIVA'),
+                op_iva: data.get('op_iva'),
+                op_montoConIVA: data.get('op_montoConIVA'),
+                op_monto: data.get('op_monto'),
+                files: files
+            });
+        }
+
+        // Funciones para ver Altas y OPs
+        function viewAltas() {
+            document.getElementById('ver-altas').classList.remove('hidden');
+            document.getElementById('ver-ops').classList.add('hidden');
+            fetchAltasData();
+        }
+
+        function viewOPs() {
+            document.getElementById('ver-ops').classList.remove('hidden');
+            document.getElementById('ver-altas').classList.add('hidden');
+            fetchOpsData();
+        }
+
+        function fetchAltasData() {
+            google.script.run.withSuccessHandler(displayAltasData).getAltasData();
+        }
+
+        function displayAltasData(data) {
+            const tableBody = document.getElementById('altasData');
+            tableBody.innerHTML = ''; // Limpiar la tabla antes de llenarla con nuevos datos.
+
+            data.forEach(record => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="py-3 px-4">${record.id}</td>
+                    <td class="py-3 px-4">${record.alta_fecha}</td>
+                    <td class="py-3 px-4">${record.alta_name}</td>
+                    <td class="py-3 px-4">${record.alta_dni}</td>
+                    <td class="py-3 px-4">${record.alta_telefono}</td>
+                    <td class="py-3 px-4"><button onclick="viewAltasDetails(${record.id})" class="text-blue-600 hover:underline">Ver Detalles</button></td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        function fetchOpsData() {
+            google.script.run.withSuccessHandler(displayOpsData).getOpsData();
+        }
+
+        function displayOpsData(data) {
+            const tableBody = document.getElementById('opsData');
+            tableBody.innerHTML = ''; // Limpiar la tabla antes de llenarla con nuevos datos.
+
+            data.forEach(record => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="py-3 px-4">${record.id}</td>
+                    <td class="py-3 px-4">${record.fecha}</td>
+                    <td class="py-3 px-4">${record.registrador}</td>
+                    <td class="py-3 px-4">${record.fondoPara}</td>
+                    <td class="py-3 px-4">${record.monto}</td>
+                    <td class="py-3 px-4">${record.estado}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Funciones de búsqueda y ordenación
+        function searchAltas() {
+            const query = document.getElementById('search-altas').value.toLowerCase();
+            const rows = document.querySelectorAll('#altasData tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                const id = cells[0].textContent.toLowerCase();
+                const nombre = cells[2].textContent.toLowerCase();
+                const dni = cells[3].textContent.toLowerCase();
+                const telefono = cells[4].textContent.toLowerCase();
+                if (id.includes(query) || nombre.includes(query) || dni.includes(query) || telefono.includes(query)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        function searchOps() {
+            const query = document.getElementById('search-ops').value.toLowerCase();
+            const rows = document.querySelectorAll('#opsData tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                const registrador = cells[2].textContent.toLowerCase();
+                if (registrador.includes(query)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        function sortTable(columnIndex) {
+            const table = document.getElementById('altasTable');
+            const rows = Array.from(table.rows).slice(1);
+            rows.sort((a, b) => {
+                const cellA = a.cells[columnIndex].textContent;
+                const cellB = b.cells[columnIndex].textContent;
+                return cellA.localeCompare(cellB);
+            });
+            rows.forEach(row => table.appendChild(row));
+        }
+
+        function sortTableOps(columnIndex) {
+            const table = document.getElementById('opsTable');
+            const rows = Array.from(table.rows).slice(1);
+            rows.sort((a, b) => {
+                const cellA = a.cells[columnIndex].textContent;
+                const cellB = b.cells[columnIndex].textContent;
+                return cellA.localeCompare(cellB);
+            });
+            rows.forEach(row => table.appendChild(row));
+        }
+
+        // Función para cargar más registros (puedes implementar la lógica según sea necesario)
+        function loadMoreAltas() {
+            // Lógica para cargar más registros de Altas
+        }
+
+        document.getElementById('op_area').addEventListener('change', function() {
+            var otrosArea = document.getElementById('otrosArea');
+            if (this.value === 'OTROS') {
+                otrosArea.style.display = 'block';
+            } else {
+                otrosArea.style.display = 'none';
+                document.getElementById('op_otrosAreaInput').value = ''; // Limpiar el campo si no es "OTROS"
+            }
+        });
+
+        document.getElementById('op_fondosPara').addEventListener('change', function() {
+            var facturaFields = document.getElementById('facturaFields');
+            var fileFields = document.getElementById('fileFields');
+            if (this.value === 'FC A PAGAR POR TRANSFERENCIA') {
+                facturaFields.style.display = 'block';
+                fileFields.style.display = 'block'; // Mostrar campos de archivos
+            } else {
+                facturaFields.style.display = 'none';
+                fileFields.style.display = 'none'; // Ocultar campos de archivos
+                // Limpiar los campos de factura si no se selecciona "FC A PAGAR POR TRANSFERENCIA"
+                document.getElementById('op_numFactura').value = '';
+                document.getElementById('op_tipoFactura').value = '';
+                document.getElementById('op_razonSocial').value = '';
+                document.getElementById('op_cuit').value = '';
+                document.getElementById('op_banco').value = '';
+                document.getElementById('op_aliasCBU').value = '';
+                document.getElementById('op_montoSinIVA').value = '';
+                document.getElementById('op_iva').value = '';
+                document.getElementById('op_montoConIVA').value = '';
+            }
+        });
+    </script>
+</head>
+<body class="font-roboto bg-gray-100">
+    <!-- Pantalla de Inicio -->
+    <div id="pantalla-inicio" class="min-h-screen flex flex-col justify-center items-center section">
+        <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+            <h1 class="text-2xl font-bold text-center mb-2">¡HOLA!</h1>
+            <p class="text-center text-gray-600 mb-6">¿Qué quieres hacer?</p>
+            <div class="flex flex-col space-y-4">
+                <button onclick="showSection('registrar-altas')" class="w-full text-center py-3 bg-blue-500 text-white text-lg rounded-lg hover:bg-blue-600 hover:font-bold transition duration-300">
+                    Registrar Alta
+                </button>
+                <button onclick="showSection('registrar-op')" class="w-full text-center py-3 bg-green-500 text-white text-lg rounded-lg hover:bg-green-600 hover:font-bold transition duration-300">
+                    Registrar OP
+                </button>
+                <button onclick="showSection('ver-altas')" class="w-full text-center py-3 bg-yellow-500 text-white text-lg rounded-lg hover:bg-yellow-600 hover:font-bold transition duration-300">
+                    Ver Altas Ingresadas
+                </button>
+                <button onclick="showSection('ver-ops')" class="w-full text-center py-3 bg-purple-500 text-white text-lg rounded-lg hover:bg-purple-600 hover:font-bold transition duration-300">
+                    Ver OP Ingresadas
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sección para Registrar Altas -->
+    <div id="registrar-altas" class="hidden bg-white p-6 rounded shadow-md mb-6 w-full max-w-md mx-auto section">
+        <h2 class="text-2xl font-bold mb-4">Registrar Alta</h2>
+        <div class="mb-4">
+            <button onclick="showHome()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-200">Inicio</button>
+            <button onclick="viewAltas()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-200">Ver Altas Ingresadas</button>
+        </div>
+        <form id="uploadFormAltas" onsubmit="uploadFilesAltas(event)">
+            <div class="space-y-6">
+                <!-- Campos del formulario para registrar altas -->
+                <div class="border p-2 rounded-md">
+                    <label for="alta_fecha" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Fecha</label>
+                    <input type="date" id="alta_fecha" name="alta_fecha" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_name" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Apellido y Nombre</label>
+                    <input type="text" id="alta_name" name="alta_name" placeholder="Tal cual figura en el DNI." required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_cargo" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Cargo en el Equipo</label>
+                    <input type="text" id="alta_cargo" name="alta_cargo" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_dni" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Número de DNI</label>
+                    <input type="text" id="alta_dni" name="alta_dni" placeholder="Solo números sin barras, comas o guiones." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_cuil" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Número de CUIL</label>
+                    <input type="text" id="alta_cuil" name="alta_cuil" placeholder="Solo números sin barras, comas o guiones." required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_afiliadoSICA" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Afiliado a SICA</label>
+                    <select id="alta_afiliadoSICA" name="alta_afiliadoSICA" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                        <option value="" disabled selected>Seleccionar</option>
+                        <option value="SI">SI</option>
+                        <option value="NO">NO</option>
+                    </select>
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_obraSocial" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Obra Social</label>
+                    <input type="text" id="alta_obraSocial" name="alta_obraSocial" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_fechaNacimiento" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Fecha de Nacimiento</label>
+                    <input type="date" id="alta_fechaNacimiento" name="alta_fechaNacimiento" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_domicilio" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Domicilio</label>
+                    <textarea id="alta_domicilio" name="alta_domicilio" rows="3" placeholder="Calle, núm, localidad, cp, provincia o Barrio, manzana, casa, localidad, cp, provincia." required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2"></textarea>
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_nombreBanco" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Nombre del Banco</label>
+                    <input type="text" id="alta_nombreBanco" name="alta_nombreBanco" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_alias" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Alias</label>
+                    <input type="text" id="alta_alias" name="alta_alias" placeholder="Alias de cuenta bancaria." required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_cbu" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">CBU</label>
+                    <input type="text" id="alta_cbu" name="alta_cbu" placeholder="CBU de cuenta bancaria." required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_telefono" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Teléfono</label>
+                    <input type="text" id="alta_telefono" name="alta_telefono" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_telefono2" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Teléfono de emergencia</label>
+                    <input type="text" id="alta_telefono2" name="alta_telefono2" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_estadoCivil" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Estado Civil</label>
+                    <select id="alta_estadoCivil" name="alta_estadoCivil" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                        <option value="" disabled selected>Seleccionar</option>
+                        <option value="CASADO">CASADO</option>
+                        <option value="DIVORCIADO">DIVORCIADO</option>
+                        <option value="SEPARADO">SEPARADO</option>
+                        <option value="SOLTERO">SOLTERO</option>
+                        <option value="VIUDO">VIUDO</option>
+                        <option value="OTRO">OTRO</option>
+                    </select>
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_grupoSanguineo" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Grupo Sanguíneo</label>
+                    <select id="alta_grupoSanguineo" name="alta_grupoSanguineo" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                        <option value="" disabled selected>Seleccionar</option>
+                        <option value="A (+)">A (+)</option>
+                        <option value="A (-)">A (-)</option>
+                        <option value="B (+)">B (+)</option>
+                        <option value="B (-)">B (-)</option>
+                        <option value="AB (+)">AB (+)</option>
+                        <option value="AB (-)">AB (-)</option>
+                        <option value="O (+)">O (+)</option>
+                        <option value="O (-)">O (-)</option>
+                    </select>
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_enfermedadesPreexistentes" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Enfermedades Preexistentes</label>
+                    <textarea id="alta_enfermedadesPreexistentes" name="alta_enfermedadesPreexistentes" rows="3" placeholder="Colocar NINGUNA o detallar la/s enfermedad/es preexistente/s." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2"></textarea>
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_restriccionAlimentaria" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Restricción Alimentaria</label>
+                    <textarea id="alta_restriccionAlimentaria" name="alta_restriccionAlimentaria" rows="3" placeholder="Colocar NO o detallar la restricción/es alimenticia/s." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2"></textarea>
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_file1" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">DNI frente</label>
+                    <input type="file" id="alta_file1" name="alta_file1" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_file2" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">DNI dorso</label>
+                <input type="file" id="alta_file2" name="alta_file2" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="alta_file3" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Constancia de CBU</label>
+                    <input type="file" id="alta_file3" name="alta_file3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pl-2">
+                </div>
+            </div>
+            <div class="mt-6">
+                <button type="submit" class="w-full bg-blue-600 text-white py-3 px-4 rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">REGISTRAR</button>
+            </div>
+            <div class="mt-2">
+                <button type="button" onclick="showHome()" class="w-full bg-red-600 text-white py-3 px-4 rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">CANCELAR</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Sección para Registrar OP -->
+    <div id="registrar-op" class="hidden bg-white p-6 rounded shadow-md mb-6 w-full max-w-md mx-auto section">
+        <h2 class="text-2xl font-bold mb-4">Registrar OP</h2>
+        <div class="mb-4">
+            <button onclick="showHome()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-200">Inicio</button>
+            <button onclick="viewOPs()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-200">Ver OP Ingresadas</button>
+        </div>
+        <form id="uploadFormOp" onsubmit="uploadFilesOp(event)">
+            <div class="space-y-6">
+                <div class="border p-2 rounded-md">
+                    <label for="op_fecha" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Fecha</label>
+                    <input type="date" id="op_fecha" name="op_fecha" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="op_opingresadax" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">¿Quién registra la OP?</label>
+                    <input type="text" id="op_opingresadax" name="op_opingresadax" placeholder="Ingresar nombre. Ej: ANDREA" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="op_empresa" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Empresa</label>
+                    <select id="op_empresa" name="op_empresa" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                        <option value="" disabled selected>Seleccionar</option>
+                        <option value="DRAGON FLY">DRAGON FLY</option>
+                        <option value="KUARZO">KUARZO</option>
+                    </select>
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="op_area" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Área</label>
+                    <select id="op_area" name="op_area" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                        <option value="" disabled selected>Seleccionar</option>
+                        <option value="PRODUCCION">PRODUCCION</option>
+                        <option value="LOCACIONES">LOCACIONES</option>
+                        <option value="ARTE">ARTE</option>
+                        <option value="VESTUARIO">VESTUARIO</option>
+                        <option value="OTROS">OTROS</option>
+                    </select>
+                </div>
+                <div class="border p-2 rounded-md" id="otrosArea" style="display: none;">
+                    <label for="op_otrosAreaInput" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Especificar Área</label>
+                    <input type="text" id="op_otrosAreaInput" name="op_otrosAreaInput" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="op_fondosPara" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Fondos Para</label>
+                    <select id="op_fondosPara" name="op_fondosPara" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                        <option value="" disabled selected>Seleccionar</option>
+                        <option value="FONDO FIJO PARA EL AREA">FONDO FIJO PARA EL AREA</option>
+                        <option value="FC A PAGAR POR TRANSFERENCIA">FC A PAGAR POR TRANSFERENCIA</option>
+                        <option value="RECARGA DE TARJETA">RECARGA DE TARJETA</option>
+                        <option value="CHEQUE PARA GARANTIA">CHEQUE PARA GARANTIA</option>
+                    </select>
+                </div>
+                <div id="facturaFields" style="display: none;">
+                    <div class="border p-2 rounded-md">
+                        <label for="op_numFactura" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Núm de Factura</label>
+                        <input type="text" id="op_numFactura" name="op_numFactura" placeholder="Solo números sin barras, comas o guiones." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                    </div>
+                    <div class="border p-2 rounded-md">
+                        <label for="op_tipoFactura" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Tipo de Factura</label>
+                        <input type="text" id="op_tipoFactura" name="op_tipoFactura" placeholder="Ingresar solo la letra del Tipo de FC (A, B o C)" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                    </div>
+                    <div class="border p-2 rounded-md">
+                        <label for="op_razonSocial" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Razón Social</label>
+                        <input type="text" id="op_razonSocial" name="op_razonSocial" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                    </div>
+                    <div class="border p-2 rounded-md">
+                        <label for="op_cuit" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">CUIT</label>
+                        <input type="text" id="op_cuit" name="op_cuit" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                    </div>
+                    <div class="border p-2 rounded-md">
+                        <label for="op_banco" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Banco</label>
+                        <input type="text" id="op_banco" name="op_banco" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                    </div>
+                    <div class="border p-2 rounded-md">
+                        <label for="op_aliasCBU" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Alias / CBU</label>
+                        <input type="text" id="op_aliasCBU" name="op_aliasCBU" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                    </div>
+                    <div class="border p-2 rounded-md">
+                        <label for="op_montoSinIVA" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Monto Sin IVA</label>
+                        <input type="number" id="op_montoSinIVA" name="op_montoSinIVA" placeholder="Ej: $100.000,00" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                    </div>
+                    <div class="border p-2 rounded-md">
+                        <label for="op_iva" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">IVA</label>
+                        <input type="number" id="op_iva" name="op_iva" placeholder="Ej: $100.000,00" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                    </div>
+                    <div class="border p-2 rounded-md">
+                        <label for="op_montoConIVA" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Monto Con IVA</label>
+                        <input type="number" id="op_montoConIVA" name="op_montoConIVA" placeholder="Ej: $100.000,00" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                    </div>
+                </div>
+                <div id="fileFields" style="display: none;">
+                    <div class="border p-2 rounded-md">
+                        <label for="op_file1" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Adjuntar FACTURA</label>
+                        <input type="file" id="op_file1" name="op_file1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pl-2">
+                    </div>
+                    <div class="border p-2 rounded-md">
+                        <label for="op_file2" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Adjuntar comprobante CBU</label>
+                        <input type="file" id="op_file2" name="op_file2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pl-2">
+                    </div>
+                </div>
+                <div class="border p-2 rounded-md">
+                    <label for="op_monto" class="block text-sm font-medium text-gray-700 border-b pb-1 mb-2">Monto</label>
+                    <input type="number" id="op_monto" name="op_monto" placeholder="Ej: $100.000,00" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-lg pl-2">
+                </div>
+            </div>
+            <div class="mt-6">
+                <button type="submit" class="w-full bg-blue-600 text-white py-3 px-4 rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">REGISTRAR</button>
+            </div>
+            <div class="mt-2">
+                <button type="button" onclick="showHome()" class="w-full bg-red-600 text-white py-3 px-4 rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">CANCELAR</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Sección para Ver Altas Ingresadas -->
+    <div id="ver-altas" class="hidden bg-white p-6 rounded shadow-md mb-6 w-full max-w-4xl mx-auto section">
+        <h2 class="text-2xl font-bold mb-4">Ver Altas Ingresadas</h2>
+        <button onclick="showHome()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-200">Inicio</button>
+        <button onclick="viewOPs()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-200">Ver OP Ingresadas</button>
+
+        <!-- Campo de Búsqueda -->
+        <div class="mb-4 mt-4">
+            <input type="text" id="search-altas" placeholder="Buscar por ID, Nombre, DNI o Teléfono" class="w-full p-2 border rounded-md" onkeyup="searchAltas()">
+        </div>
+
+        <!-- Tabla de Altas -->
+        <table id="altasTable" class="min-w-full bg-white shadow-md rounded-md">
+            <thead class="bg-gray-200">
+                <tr>
+                    <th class="py-3 px-4 text-left cursor-pointer" onclick="sortTable(0)">ID</th>
+                    <th class="py-3 px-4 text-left cursor-pointer" onclick="sortTable(1)">Fecha</th>
+                    <th class="py-3 px-4 text-left cursor-pointer" onclick="sortTable(2)">Nombre</th>
+                    <th class="py-3 px-4 text-left cursor-pointer" onclick="sortTable(3)">DNI</th>
+                    <th class="py-3 px-4 text-left cursor-pointer" onclick="sortTable(4)">Teléfono</th>
+                    <th class="py-3 px-4">Ver</th>
+                </tr>
+            </thead>
+            <tbody id="altasData">
+                <!-- Los datos serán insertados aquí mediante Google Apps Script -->
+            </tbody>
+        </table>
+        <button onclick="loadMoreAltas()" class="mt-4 text-blue-600 hover:underline">Cargar más registros</button>
+    </div>
+
+    <!-- Sección para Ver OP Ingresadas -->
+    <div id="ver-ops" class="hidden bg-white p-6 rounded shadow-md mb-6 w-full max-w-4xl mx-auto section">
+        <h2 class="text-2xl font-bold mb-4">Ver OP Ingresadas</h2>
+        <button onclick="showHome()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-200">Inicio</button>
+        <button onclick="viewAltas()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-200">Ver Altas Ingresadas</button>
+
+        <!-- Campo de Búsqueda -->
+        <div class="mb-4 mt-4">
+            <input type="text" id="search-ops" placeholder="Buscar por Nombre del Registrador" class="w-full p-2 border rounded-md" onkeyup="searchOps()">
+        </div>
+
+        <!-- Tabla de OP -->
+        <table id="opsTable" class="min-w-full bg-white shadow-md rounded-md">
+            <thead class="bg-gray-200">
+                <tr>
+                    <th class="py-3 px-4 text-left cursor-pointer" onclick="sortTableOps(0)">ID</th>
+                    <th class="py-3 px-4 text-left cursor-pointer" onclick="sortTableOps(1)">Fecha</th>
+                    <th class="py-3 px-4 text-left cursor-pointer" onclick="sortTableOps(2)">Registrador</th>
+                    <th class="py-3 px-4 text-left cursor-pointer" onclick="sortTableOps(3)">Fondo Para</th>
+                    <th class="py-3 px-4 text-left cursor-pointer" onclick="sortTableOps(4)">Monto</th>
+                    <th class="py-3 px-4 text-left cursor-pointer" onclick="sortTableOps(5)">Estado</th>
+                </tr>
+            </thead>
+            <tbody id="opsData">
+                <!-- Los datos serán insertados aquí mediante Google Apps Script -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Funciones para manejar la búsqueda y ordenación
+        function searchAltas() {
+            const query = document.getElementById('search-altas').value.toLowerCase();
+            const rows = document.querySelectorAll('#altasData tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                const id = cells[0].textContent.toLowerCase();
+                const nombre = cells[2].textContent.toLowerCase();
+                const dni = cells[3].textContent.toLowerCase();
+                const telefono = cells[4].textContent.toLowerCase();
+                if (id.includes(query) || nombre.includes(query) || dni.includes(query) || telefono.includes(query)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        function searchOps() {
+            const query = document.getElementById('search-ops').value.toLowerCase();
+            const rows = document.querySelectorAll('#opsData tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                const registrador = cells[2].textContent.toLowerCase();
+                if (registrador.includes(query)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        function sortTable(columnIndex) {
+            const table = document.getElementById('altasTable');
+            const rows = Array.from(table.rows).slice(1);
+            rows.sort((a, b) => {
+                const cellA = a.cells[columnIndex].textContent;
+                const cellB = b.cells[columnIndex].textContent;
+                return cellA.localeCompare(cellB);
+            });
+            rows.forEach(row => table.appendChild(row));
+        }
+
+        function sortTableOps(columnIndex) {
+            const table = document.getElementById('opsTable');
+            const rows = Array.from(table.rows).slice(1);
+            rows.sort((a, b) => {
+                const cellA = a.cells[columnIndex].textContent;
+                const cellB = b.cells[columnIndex].textContent;
+                return cellA.localeCompare(cellB);
+            });
+            rows.forEach(row => table.appendChild(row));
+        }
+
+        // Función para cargar más registros (puedes implementar la lógica según sea necesario)
+        function loadMoreAltas() {
+            // Lógica para cargar más registros de Altas
+        }
+
+        document.getElementById('op_area').addEventListener('change', function() {
+            var otrosArea = document.getElementById('otrosArea');
+            if (this.value === 'OTROS') {
+                otrosArea.style.display = 'block';
+            } else {
+                otrosArea.style.display = 'none';
+                document.getElementById('op_otrosAreaInput').value = ''; // Limpiar el campo si no es "OTROS"
+            }
+        });
+
+        document.getElementById('op_fondosPara').addEventListener('change', function() {
+            var facturaFields = document.getElementById('facturaFields');
+            var fileFields = document.getElementById('fileFields');
+            if (this.value === 'FC A PAGAR POR TRANSFERENCIA') {
+                facturaFields.style.display = 'block';
+                fileFields.style.display = 'block'; // Mostrar campos de archivos
+            } else {
+                facturaFields.style.display = 'none';
+                fileFields.style.display = 'none'; // Ocultar campos de archivos
+                // Limpiar los campos de factura si no se selecciona "FC A PAGAR POR TRANSFERENCIA"
+                document.getElementById('op_numFactura').value = '';
+                document.getElementById('op_tipoFactura').value = '';
+                document.getElementById('op_razonSocial').value = '';
+                document.getElementById('op_cuit').value = '';
+                document.getElementById('op_banco').value = '';
+                document.getElementById('op_aliasCBU').value = '';
+                document.getElementById('op_montoSinIVA').value = '';
+                document.getElementById('op_iva').value = '';
+                document.getElementById('op_montoConIVA').value = '';
+            }
+        });
+    </script>
+</body>
+</html>
