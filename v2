@@ -1,0 +1,185 @@
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('index')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setTitle('INICIO REGISTROS Adm')
+    .setFaviconUrl('https://example.com/favicon.ico')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// Funciones para registrar altas
+function uploadFilesAltas(data) {
+  try {
+    var folderId = '1HfI-KzM--rxt_PcoSYau4bPYC1bpWitT'; // ID de la carpeta en Google Drive
+    var folder = DriveApp.getFolderById(folderId);
+    
+    if (folder) {
+      var fileUrls = [];
+      
+      for (var i = 0; i < data.files.length; i++) {
+        var fileData = data.files[i];
+        if (fileData) {
+          var decoded = Utilities.base64Decode(fileData.data);
+          var blob = Utilities.newBlob(decoded, fileData.type, fileData.name);
+          if (blob) {
+            var file = folder.createFile(blob);
+            var fileUrl = file.getUrl();
+            fileUrls.push(fileUrl);
+          } else {
+            fileUrls.push('');
+          }
+        } else {
+          fileUrls.push('');
+        }
+      }
+
+      var spreadsheetId = '1GS6euZ5-1IHZUd5ASC4z2C8BEbWzaSmqHHwEeheKlTQ'; // ID de la hoja de cálculo
+      var spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+      var sheet = spreadsheet.getSheetByName("DATOS ALTAS");
+      if (!sheet) {
+        sheet = spreadsheet.insertSheet("DATOS ALTAS");
+        sheet.appendRow(['ID', 'Fecha', 'Nombre y Apellido', 'Cargo', 'Número DNI', 'Número CUIL', 'Afiliado a SICA', 'Obra Social', 'Fecha de Nacimiento', 'Domicilio', 'Nombre del Banco', 'Alias', 'CBU', 'Teléfono', 'Teléfono de emergencia', 'Estado Civil', 'Grupo Sanguíneo', 'Enfermedades Preexistentes', 'Restricción Alimentaria', 'Archivo 1', 'Archivo 2', 'Archivo 3']);
+      }
+      
+      var id = sheet.getLastRow(); // ID automático
+
+      // Convertir fecha al formato 'dd/mm/aaaa' y transformar datos a mayúsculas
+      var fechaFormateada = Utilities.formatDate(new Date(data.alta_fecha), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+      sheet.appendRow([
+        id, 
+        fechaFormateada, 
+        data.alta_name.toUpperCase(), 
+        data.alta_cargo.toUpperCase(), 
+        data.alta_dni.toUpperCase(), 
+        data.alta_cuil.toUpperCase(), 
+        data.alta_afiliadoSICA.toUpperCase(), 
+        data.alta_obraSocial.toUpperCase(), 
+        Utilities.formatDate(new Date(data.alta_fechaNacimiento), Session.getScriptTimeZone(), 'dd/MM/yyyy'), 
+        data.alta_domicilio.toUpperCase(), 
+        data.alta_nombreBanco.toUpperCase(), 
+        data.alta_alias.toUpperCase(), 
+        data.alta_cbu.toUpperCase(), 
+        data.alta_telefono.toUpperCase(), 
+        data.alta_telefono2.toUpperCase(), 
+        data.alta_estadoCivil.toUpperCase(), 
+        data.alta_grupoSanguineo.toUpperCase(), 
+        data.alta_enfermedadesPreexistentes.toUpperCase(), 
+        data.alta_restriccionAlimentaria.toUpperCase()
+      ].concat(fileUrls));
+      return "DATOS GUARDADOS!";
+    } else {
+      return "Error: No se encontró la carpeta con la ID proporcionada.";
+    }
+  } catch (error) {
+    return "Ocurrió un error: " + error.toString();
+  }
+}
+
+// Funciones para registrar OP
+function uploadFilesOp(data) {
+  try {
+    var folderId = '1_kZYzb_LtRsWk8OR2YAU2GSr95-Xii7u'; // ID de la carpeta en Google Drive
+    var folder = DriveApp.getFolderById(folderId);
+    
+    if (folder) {
+      var fileUrls = [];
+      
+      for (var i = 0; i < data.files.length; i++) {
+        var fileData = data.files[i];
+        if (fileData) {
+          var decoded = Utilities.base64Decode(fileData.data);
+          var blob = Utilities.newBlob(decoded, fileData.type, fileData.name);
+          if (blob) {
+            var file = folder.createFile(blob);
+            var fileUrl = file.getUrl();
+            fileUrls.push(fileUrl);
+          } else {
+            fileUrls.push('');
+          }
+        } else {
+          fileUrls.push('');
+        }
+      }
+
+      var spreadsheetId = '1GS6euZ5-1IHZUd5ASC4z2C8BEbWzaSmqHHwEeheKlTQ'; // ID de la hoja de cálculo
+      var spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+      var sheet = spreadsheet.getSheetByName("DATOS OP");
+      if (!sheet) {
+        sheet = spreadsheet.insertSheet("DATOS OP");
+        sheet.appendRow(['ID', 'Fecha', 'Nombre y Apellido', 'Cargo', 'Número DNI', 'Número CUIL', 'Afiliado a SICA', 'Obra Social', 'Fecha de Nacimiento', 'Domicilio', 'Nombre del Banco', 'Alias', 'CBU', 'Teléfono', 'Teléfono de emergencia', 'Estado Civil', 'Grupo Sanguíneo', 'Enfermedades Preexistentes', 'Restricción Alimentaria', 'Archivo 1', 'Archivo 2']);
+      }
+      
+      var id = sheet.getLastRow(); // ID automático
+
+      // Convertir fecha al formato 'dd/mm/aaaa' y transformar datos a mayúsculas
+      var fechaFormateada = Utilities.formatDate(new Date(data.op_fecha), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+      sheet.appendRow([
+        id, 
+        fechaFormateada, 
+        data.op_opingresadax.toUpperCase(), 
+        data.op_empresa.toUpperCase(), 
+        (data.op_area === 'OTROS' ? data.op_otrosAreaInput : data.op_area).toUpperCase(), 
+        data.op_fondosPara.toUpperCase(), 
+        data.op_fondosPara === 'FC A PAGAR POR TRANSFERENCIA' ? data.op_numFactura.toUpperCase() : '', 
+        data.op_fondosPara === 'FC A PAGAR POR TRANSFERENCIA' ? data.op_tipoFactura.toUpperCase() : '', 
+        data.op_fondosPara === 'FC A PAGAR POR TRANSFERENCIA' ? data.op_razonSocial.toUpperCase() : '', 
+        data.op_fondosPara === 'FC A PAGAR POR TRANSFERENCIA' ? data.op_cuit.toUpperCase() : '', 
+        data.op_fondosPara === 'FC A PAGAR POR TRANSFERENCIA' ? data.op_banco.toUpperCase() : '', 
+        data.op_fondosPara === 'FC A PAGAR POR TRANSFERENCIA' ? data.op_aliasCBU.toUpperCase() : '', 
+        data.op_fondosPara === 'FC A PAGAR POR TRANSFERENCIA' ? data.op_montoSinIVA.toUpperCase() : '', 
+        data.op_fondosPara === 'FC A PAGAR POR TRANSFERENCIA' ? data.op_iva.toUpperCase() : '', 
+        data.op_fondosPara === 'FC A PAGAR POR TRANSFERENCIA' ? data.op_montoConIVA.toUpperCase() : '', 
+        data.op_monto.toUpperCase(), 
+        'PENDIENTE'
+      ].concat(fileUrls));
+      
+      return "DATOS GUARDADOS!";
+    } else {
+      return "Error: No se encontró la carpeta con la ID proporcionada.";
+    }
+  } catch (error) {
+    return "Ocurrió un error: " + error.toString();
+  }
+}
+
+// Función para obtener datos de Altas
+function getAltasData() {
+  var spreadsheetId = '1GS6euZ5-1IHZUd5ASC4z2C8BEbWzaSmqHHwEeheKlTQ'; // ID de la hoja de cálculo
+  var spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+  var sheet = spreadsheet.getSheetByName("DATOS ALTAS");
+  var data = sheet.getDataRange().getValues();
+  
+  // Convertir los datos a un formato de objeto
+  var result = [];
+  for (var i = 1; i < data.length; i++) { // Comenzar desde 1 para omitir la cabecera
+    result.push({
+      id: data[i][0],
+      alta_fecha: data[i][1],
+      alta_name: data[i][2],
+      alta_dni: data[i][4],
+      alta_telefono: data[i][12]
+    });
+  }
+  return result;
+}
+
+// Función para obtener datos de OP
+function getOpsData() {
+  var spreadsheetId = '1GS6euZ5-1IHZUd5ASC4z2C8BEbWzaSmqHHwEeheKlTQ'; // ID de la hoja de cálculo
+  var spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+  var sheet = spreadsheet.getSheetByName("DATOS OP");
+  var data = sheet.getDataRange().getValues();
+  
+  // Convertir los datos a un formato de objeto
+  var result = [];
+  for (var i = 1; i < data.length; i++) { // Comenzar desde 1 para omitir la cabecera
+    result.push({
+      id: data[i][0],
+      op_fecha: data[i][1],
+      op_opingresadax: data[i][2],
+      op_empresa: data[i][3],
+      op_fondosPara: data[i][5],
+      op_monto: data[i][13]
+    });
+  }
+  return result;
+}
